@@ -1,3 +1,6 @@
 [submodule "libs/slua"]
 	path = libs/slua
 	url = https://github.com/LunaFramework/slua.git
+[submodule "libs/lua"]
+	path = libs/lua
+	url = https://github.com/LunaFramework/lua.git
