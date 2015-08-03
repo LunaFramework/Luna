@@ -4,3 +4,6 @@
 [submodule "libs/lua"]
 	path = libs/lua
 	url = https://github.com/LunaFramework/lua.git
+	branch = lua-5.1
+[submodule "libs"]
+	branch = lua51
