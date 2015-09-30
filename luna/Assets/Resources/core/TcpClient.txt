@@ -1,0 +1,49 @@
+local tcpClient = {}
+local uv = require("luv")
+
+function tcpClient.new()
+    local t = {}
+    setmetatable(t, {__index = tcpClient})
+    return t
+end
+
+function tcpClient:connect(ip, port, connectCB)
+    self.ip = ip
+    self.port = port
+    self.connectCB = connectCB
+
+    if self.tcp == nil then
+        self.tcp = uv.new_tcp()        
+    end
+
+    uv.tcp_connect(self.tcp, ip, port, function(err) 
+                       self.connection = true
+                       connectCB()
+    end)
+end
+
+function tcpClient:disconnect()
+    self.connection = false
+    uv.shutdown(self.tcp)
+end
+
+function tcpClient:send(buf)
+    uv.write(self.tcp, buf)
+end
+
+function tcpClient:recvStart(recvCB)
+    self.tcp:read_start(recvCB)
+end
+
+function tcpClient:recvStop()
+    self.tcp:read_stop()
+end
+
+function tcpClient:close()
+    if self.tcp ~= nil then
+        self.connection = false
+        uv.close(self.tcp)    
+    end
+end
+
+return tcpClient

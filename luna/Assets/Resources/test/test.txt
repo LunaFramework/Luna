@@ -1,0 +1,173 @@
+import "UnityEngine"
+
+
+-- require test
+local print = require "test.print_r"
+print(package)
+
+local sp = require "sproto.core"
+print(sp)
+
+local sr = require "lib.sproto"
+print(sr)
+
+local uv = require "luv"
+print(uv)
+
+local csv = require "lib.csv"
+print(csv)
+
+-- csv test
+print("test-proto")
+local text = Resources.Load("test/proto")
+print(text)
+print(getmetatable(text))
+print(text:GetType())
+--print(text:text())
+print(text.text)
+--print(text.As("UnityEngine.TextAsset"))
+
+
+-- sproto test
+print("=========test sproto")
+require "test.testall"
+require "test.testrpc"
+require "test.test-sp"
+
+
+-- test string pack
+print("=========test string pack")
+bpack=string.pack
+bunpack=string.unpack
+
+function hex(s)
+ s=string.gsub(s,"(.)",function (x) return string.format("%02X",string.byte(x)) end)
+ return s
+end
+
+a=bpack("Ab8","\027Lua",5*16+1,0,1,4,4,4,8,0)
+print(hex(a),string.len(a))
+
+b=string.dump(hex)
+b=string.sub(b,1,string.len(a))
+print(a==b,string.len(b))
+print(bunpack(b,"bA3b8"))
+
+i=314159265 f="<I>I=I"
+a=bpack(f,i,i,i)
+print(hex(a))
+print(bunpack(a,f))
+
+i=3.14159265 f="<d>d=d"
+a=bpack(f,i,i,i)
+print(hex(a))
+print(bunpack(a,f))
+
+
+-- luv&sproto test
+--[[
+print("=========test luv")
+local p = print--require('lib/utils').prettyPrint
+local uv = require('luv')
+
+local function create_server(host, port, on_connection)
+
+  local server = uv.new_tcp()
+  p({1, server})
+  uv.tcp_bind(server, host, port)
+
+  uv.listen(server, 128, function(err)
+  	print("listen")  	
+    assert(not err, err)
+    local client = uv.new_tcp()
+    uv.accept(server, client)
+    on_connection(client)
+  end)
+
+  return server
+end
+
+local server = create_server("0.0.0.0", 0, function (client)
+	print("connect")
+	
+  p({"new client", client, uv.tcp_getsockname(client), uv.tcp_getpeername(client)})
+  uv.read_start(client, function (err, chunk)
+    p({"onread", {err=err,chunk=chunk}})
+	print(chunk)
+	print(err)
+	
+    -- Crash on errors
+    assert(not err, err)
+
+    if chunk then
+      -- Echo anything heard
+      print("uv write")
+      uv.write(client, chunk)
+    else
+      -- When the stream ends, close the socket
+      print("uv close")
+      uv.close(client)
+    end
+  end)
+end)
+
+local address = uv.tcp_getsockname(server)
+print(address)
+p({"server", server, address})
+
+local client = uv.new_tcp()
+uv.tcp_connect(client, "127.0.0.1", address.port, function (err)
+	print("connect")
+	print(err)
+	
+  assert(not err, err)
+
+  uv.read_start(client, function (err, chunk)
+    p({"received at client", {err=err,chunk=chunk}})
+    print(err)
+    assert(not err, err)
+    if chunk then
+      uv.shutdown(client)
+      p("client done shutting down")
+    else
+      p("close client and server")
+      uv.close(client)
+      uv.close(server)
+    end
+  end)
+
+  p("writing from client")
+  uv.write(client, "Hello")
+  uv.write(client, "World")
+  uv.write(client, "333")
+
+end)
+]]
+
+--tcp client test
+
+
+print("=========test TCP Client")
+local proto = require "test.proto"
+local sproto = require "lib.sproto"
+
+local host = sproto.new(proto.s2c):host "package"
+local request = host:attach(sproto.new(proto.c2s))
+
+local TCP = require "framework.TcpClient"
+local client = TCP.new()
+
+print(client)
+print("new TCP")
+
+client:connect("127.0.0.1", 8888, function(err)
+	print(err)
+	print(string.pack)
+	local buf = request("set", { what = "hello", value = "world" }, 100)
+	local c = string.pack(">P", buf)
+	client:send(c)
+	client:close()
+end)
+
+uv.run()
+uv.loop_close()

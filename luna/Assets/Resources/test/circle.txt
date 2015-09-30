@@ -1,0 +1,305 @@
+
+local print = require "print_r"
+print(package)
+--print(preload)
+--print(luv)
+--print(package.preload)
+
+--print(_G)
+--local sp = sproto.core()
+--print(sp)
+--print(sproto)
+
+local sp = require "sproto.core"
+print(sp)
+
+local sr = require "sproto"
+print(sr)
+
+local uv = require "luv"
+print(uv)
+
+-- 可以开始写一些框架了
+
+local text = Resources.Load("test/proto")
+print(text)
+
+
+
+-- sproto test
+--[[
+require "LuaLib.test"
+require "LuaLib.testall"
+require "LuaLib.testrpc"
+]]
+
+-- test string pack
+--[[
+bpack=string.pack
+bunpack=string.unpack
+
+function hex(s)
+ s=string.gsub(s,"(.)",function (x) return string.format("%02X",string.byte(x)) end)
+ return s
+end
+
+a=bpack("Ab8","\027Lua",5*16+1,0,1,4,4,4,8,0)
+print(hex(a),string.len(a))
+
+b=string.dump(hex)
+b=string.sub(b,1,string.len(a))
+print(a==b,string.len(b))
+print(bunpack(b,"bA3b8"))
+
+i=314159265 f="<I>I=I"
+a=bpack(f,i,i,i)
+print(hex(a))
+print(bunpack(a,f))
+
+i=3.14159265 f="<d>d=d"
+a=bpack(f,i,i,i)
+print(hex(a))
+print(bunpack(a,f))
+]]
+
+-- luv&sproto test
+
+local proto = require "proto"
+local sproto = require "sproto"
+
+local host = sproto.new(proto.s2c):host "package"
+local request = host:attach(sproto.new(proto.c2s))
+
+local TCP = require "TcpClient"
+local client = TCP.new()
+
+client:connect("127.0.0.1", 8888, function(err)
+	print(err)
+	print(string.pack)
+	local buf = request("set", { what = "hello", value = "world" }, 100)
+	local c = string.pack(">P", buf)
+	client:send(c)
+	client:close()
+end)
+
+--[[
+local client = uv.new_tcp()
+
+uv.tcp_connect(client, "127.0.0.1", 8888, 
+function (err)
+	print(err)
+	
+  	assert(not err, err)
+
+	uv.read_start(client, 
+	function (err, chunk)
+		p({"received at client", {err=err,chunk=chunk}})
+		assert(not err, err)
+		if chunk then
+	  		uv.shutdown(client)
+	  		p("client done shutting down")
+		else
+	  		uv.close(client)
+	  		uv.close(server)
+		end
+	end)
+
+	p("writing from client")
+	uv.write(client, "Hello")
+	uv.write(client, "World")
+
+end)
+
+--uv.tcp_bind(tcpHandle, "127.0.0.1", 8888)
+]]
+
+
+
+local p = print--require('lib/utils').prettyPrint
+local uv = require('luv')
+
+local function create_server(host, port, on_connection)
+
+  local server = uv.new_tcp()
+  p({1, server})
+  uv.tcp_bind(server, host, port)
+
+  uv.listen(server, 128, function(err)
+  	print("listen")  	
+    assert(not err, err)
+    local client = uv.new_tcp()
+    uv.accept(server, client)
+    on_connection(client)
+  end)
+
+  return server
+end
+
+local server = create_server("0.0.0.0", 0, function (client)
+	print("connect")
+	
+  p({"new client", client, uv.tcp_getsockname(client), uv.tcp_getpeername(client)})
+  uv.read_start(client, function (err, chunk)
+    p({"onread", {err=err,chunk=chunk}})
+	print(chunk)
+	print(err)
+	
+    -- Crash on errors
+    assert(not err, err)
+
+    if chunk then
+      -- Echo anything heard
+      print("uv write")
+      uv.write(client, chunk)
+    else
+      -- When the stream ends, close the socket
+      print("uv close")
+      uv.close(client)
+    end
+  end)
+end)
+
+local address = uv.tcp_getsockname(server)
+print(address)
+p({"server", server, address})
+
+local client = uv.new_tcp()
+uv.tcp_connect(client, "127.0.0.1", address.port, function (err)
+	print("connect")
+	print(err)
+	
+  assert(not err, err)
+
+  uv.read_start(client, function (err, chunk)
+    p({"received at client", {err=err,chunk=chunk}})
+    print(err)
+    assert(not err, err)
+    if chunk then
+      uv.shutdown(client)
+      p("client done shutting down")
+    else
+      p("close client and server")
+      uv.close(client)
+      uv.close(server)
+    end
+  end)
+
+  p("writing from client")
+  uv.write(client, "Hello")
+  uv.write(client, "World")
+  uv.write(client, "333")
+
+end)
+
+-- Start the main event loop
+print("run!!")
+uv.run()
+-- Close any stray handles when done
+uv.walk(uv.close)
+uv.run()
+uv.loop_close()
+
+
+--[[
+import "UnityEngine"
+
+local print = require "LuaLib.print_r"
+print(_G)
+--local sp = sproto()
+--
+--print(_G["_PRELOAD"])
+
+if not UnityEngine.GameObject or not  UnityEngine.UI then
+	error("Click Make/All to generate lua wrap file")
+end
+
+local pi=math.pi
+local class={}
+
+function main()
+	local slider = GameObject.Find("Canvas/Slider"):GetComponent(UI.Slider)
+	local counttxt = GameObject.Find("Canvas/Count"):GetComponent(UI.Text)
+	slider.onValueChanged:AddListener(
+		function(v)
+			class:init(v)
+			counttxt.text=string.format("cube:%d",v)
+		end
+	)
+	
+	class.root = GameObject("root")
+	class.ftext = GameObject.Find("Canvas/Text"):GetComponent(UI.Text)
+	class.r=10
+	class.cubes={}
+	class.t=0
+	class.f=0
+	class.framet=0
+	class.max=0
+	
+	class:init()
+	
+	print(class)
+	return class
+end
+
+function class:init(count)
+
+	for _,v in ipairs(self.cubes) do
+		GameObject.Destroy(v[1])
+	end
+
+	self.cubes={}
+	self.max=count or 400
+	
+	local P = Resources.Load("Particle System")
+	
+	self.colors={Color.red,Color.blue,Color.green,Color.cyan,Color.grey,Color.white,Color.yellow,Color.magenta,Color.black}
+
+	for i=0,self.max do
+		local cube = GameObject.CreatePrimitive(PrimitiveType.Cube)
+		cube.transform.position = Vector3(math.cos(i/self.max*pi*2)*self.r,math.sin( i/self.max*pi*2)*self.r,0)
+		cube.transform:SetParent(self.root.transform)
+		local mat=cube:GetComponent(Renderer).material
+
+		local box=cube:GetComponent(BoxCollider)
+		GameObject.Destroy(box)
+		
+		local p = GameObject.Instantiate(P,Vector3.zero,Quaternion.identity)
+		p.transform:SetParent( cube.transform )
+
+		mat.color=self.colors[math.random(#self.colors)]
+		table.insert(self.cubes,{cube,mat})
+	end
+end
+
+function class:update() -- gc alloc is zero
+	
+	for i,v in ipairs(self.cubes) do
+		local offset = i%2==1 and 5 or -5
+		local r = self.r+math.sin(Time.time)*offset
+		local angle= i%2==1 and Time.time or -Time.time
+		local base=Vector3(math.cos(i/self.max*pi*2+angle)*r,
+			math.sin(i/self.max*pi*2+angle)*r,0)
+
+		v[1].transform.position = base
+		--v[2].color=self.colors[math.random(#self.colors)]
+	end
+
+	if not self.fogStart or self.t>1 then
+		self.fogStart=Time.time
+		self.bgCurrent = Camera.main.backgroundColor
+		self.bgColor=self.colors[math.random(#self.colors)]
+	end
+
+	self.t=(Time.time-self.fogStart)/10
+	Camera.main.backgroundColor = Color.Lerp(self.bgCurrent,self.bgColor,self.t)
+
+	--calc fps
+	self.f=self.f+1
+	self.framet=self.framet+Time.deltaTime
+	if self.framet>=1 then
+		self.ftext.text=string.format("fps:%d",self.f)
+		self.f=0
+		self.framet=self.framet-1
+	end
+end
+]]

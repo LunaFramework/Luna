@@ -1,0 +1,476 @@
+
+local utils = utils or {}
+
+
+-- ******************************
+-- ********* log begin **********
+-- ******************************
+
+
+utils.log = function(tag, fmt, ...)
+    vx.Log:Log(string.format("%s" .. fmt, "[" .. tostring(tag) .. "]  ", ...))
+end
+
+function utils.logFormat(...)
+    vx.Log:Log(string.format(...))
+end
+
+utils.logFree = print
+
+local function makeTagLog(tag)
+    _G["log" .. tag] = function(fmt, ...)
+        if type(fmt) == "table" then
+            utils.log(string.upper(tag), "============== Print Table ===============", ...)
+            printTree(fmt)
+            utils.log(string.upper(tag), "===============     End     ==============".."\n", ...)
+        else
+            utils.log(string.upper(tag), tostring(fmt) .. "\n", ...)
+        end
+    end
+end
+
+function utils.logString(s)
+    utils.logFormat("%s", s)
+end
+
+utils.logOpenTag = makeTagLog
+
+function utils.logCloseTag(tag)
+    utils["log" .. tag] = function(fmt, ...)
+        -- close it
+    end
+end
+
+makeTagLog("Error")
+makeTagLog("Warnning")
+makeTagLog("Normal")
+
+utils.makeTagLog = makeTagLog
+
+utils.logMark = function(fmt, ...)
+    utils.log("=================MARK================","\n" .. fmt .. "\n[=================MARK================]\n", ...)
+end
+
+-- ******************************
+-- ********* log end ************
+-- ******************************
+
+
+-- ******************************
+-- ******** debug begin *********
+-- ******************************
+
+function utils.stack()
+    logNormal(debug.traceback())
+end
+
+utils.vardump = function(value, depth, key)
+    utils.logString(utils.vardumpStr(value, depth, key))
+end
+
+function utils.logTree(t)
+    logNormal(table2Str(t))
+end
+
+utils.logVardump = function(value, depth, key)
+    utils.logString(utils.vardumpStr(value, depth, key))
+end
+
+utils.vardumpStr = function(value, depth, key)
+    local linePrefix = ""
+    local spaces = ""
+    local outstr = ""
+
+    if key ~= nil then
+        linePrefix = "["..key.."] = "
+    end
+
+    if depth == nil then
+        depth = 0
+    else
+        depth = depth + 1
+        for i=1, depth do spaces = spaces .. "  " end
+    end
+
+    if type(value) == 'table' then
+        mTable = getmetatable(value)
+        if mTable == nil then
+            outstr = outstr .. spaces ..linePrefix.."(table) " .. "\n"
+        else
+            outstr = outstr .. spaces .."(metatable) " .. "\n"
+            value = mTable
+        end
+        for tableKey, tableValue in pairs(value) do
+            outstr = outstr .. utils.vardumpStr(tableValue, depth, tableKey)
+        end
+    elseif type(value) == 'function' or
+        type(value) == 'thread' or
+        type(value) == 'userdata' or
+        value    == nil
+    then
+        outstr = outstr .. spaces..tostring(value) .. "\n"
+    else
+        outstr = outstr .. spaces..linePrefix.."("..type(value)..") "..tostring(value) .. "\n"
+    end
+    return outstr
+end
+
+utils.readOnly = function(t)
+    local proxy = {}
+    local mt = {
+        __index = t,
+        __newindex = function(t,k,v)
+            logWarnning("%s can not change by key = %s & value = %s", tostring(t), tostring(k), tostring(v))
+        end
+    }
+    setmetatable(proxy, mt)
+    return proxy
+end
+
+
+-- snapshot
+local snap1 = nil
+local snap2 = nil
+function utils.makeSnap1()
+    snap1 = snapshot.snap()
+end
+function utils.makeSnap2()
+    snap2 = snapshot.snap()
+end
+function utils.compareSnaps(p)
+    local s1 = snap1
+    local s2 = snap2
+    for i,v in pairs(s2) do
+        if s1[i] == nil then
+            p(i, v)
+        end
+    end
+end
+function utils.logSnapCompare()
+    utils.compareSnaps(logNormal)
+end
+function utils.logSnap()
+    local oldSnap = snap1
+
+    snap1 = snap2
+    snap2 = snapshot.snap()
+
+    if snap1 ~= nil then
+        utils.compareSnaps(print)
+    else
+        print("====================================================")
+        print("======================First Time====================")
+        print("====================================================")
+    end
+end
+-- 一直和第一个快照进行对比
+function utils.logSnap2()
+    -- snap1 = snap2
+    snap2 = snapshot.snap()
+
+    if snap1 ~= nil then
+        utils.compareSnaps(print)
+    else
+        snap1 = snapshot.snap()
+        print("====================================================")
+        print("======================First Time====================")
+        print("====================================================")
+    end
+
+end
+
+function utils.logTextureInfo(nextFrame)
+-- if nextFrame ~= nil then
+--     local function printInfo()
+--         utils.logMark(tostring(nextFrame))
+--         print(cc.Director:getInstance():getTextureCache():getCachedTextureInfo())
+--     end
+--     scheduler.performWithDelayGlobal(printInfo, 1)
+-- else
+--     print(cc.Director:getInstance():getTextureCache():getCachedTextureInfo())
+-- end
+end
+
+function utils.logMem()
+    local memCount = collectgarbage("count")
+    print("===============used memory:"..tostring(memCount))
+    -- utils.logSnap()
+end
+
+
+-- ******************************
+-- ******** debug end ***********
+-- ******************************
+
+
+-- ******************************
+-- ******* string begin *********
+-- ******************************
+
+function utils.split(s, p)
+    local pt = {}
+    string.gsub(s,'[^' .. p .. ']+', function(w) table.insert(pt, w) end)
+    return pt
+end
+
+function utils.splitToNumber(s, p)
+    local pt = {}
+    string.gsub(s,'[^' .. p .. ']+', function(w) table.insert(pt, tonumber(w)) end)
+    return pt
+end
+
+
+-- ******************************
+-- ******* string end ***********
+-- ******************************
+
+
+-- ******************************
+-- ******* math begin ***********
+-- ******************************
+
+utils.pi = 3.14159265354
+utils.half_pi = utils.pi / 2
+utils.double_pi = utils.pi * 2
+utils.square_pi = utils.pi * utils.pi
+utils.square_half_pi = utils.half_pi * utils.half_pi
+
+function utils.angleToRadian(a)
+    return a / 360 * utils.double_pi
+end
+
+function utils.radianToAngle(r)
+    return r / utils.double_pi * 360
+end
+
+
+function utils.formatTime1(sec)
+    local day = math.floor(sec / 24 / 60 / 60)
+    local hour = math.floor(sec / 60 / 60 % 24)
+    local min = math.floor(sec / 60 % 60)
+    local sec = math.floor(sec % 60)
+
+    local text = ""
+    if day > 0 then
+        text = string.format("%dd%dh%dm", day, hour, min)
+    else
+        if hour > 0 then
+            text = string.format("%dh%dm%ds", hour, min, sec)
+        else
+            if min > 0 then
+                text = string.format("%dm%ds", min, sec)
+            else
+                text = string.format("%ds", sec)
+            end
+        end
+    end
+    return text
+end
+
+-- 返回格式 xx:xx:xx
+function utils.formatTime(sec)
+    local hour = math.floor(sec / 3600)
+    local min = math.floor(sec / 60 % 60)
+    local sec = math.floor(sec % 60)
+
+    --[[
+    local text = ""
+    if hour > 0 then
+        text = string.format("%02d:%02d:%02d", hour, min, sec)
+    else
+        if min > 0 then
+            text = string.format("%02d:%02d", min, sec)
+        else
+            text = string.format("%02d", sec)
+        end
+    end
+    ]]
+    return string.format("%02d:%02d:%02d", hour, min, sec)
+end
+
+
+
+-- ******************************
+-- ********* math end ***********
+-- ******************************
+
+
+-- ******************************
+-- ********* lua begin **********
+-- ******************************
+
+
+function utils.safeCall(func, ...)
+    if func then
+        return func(...)
+    else
+        logWarnning("func is nil")
+    end
+end
+
+
+function utils.assert(...)
+    if is_debug then
+        return assert(...)
+    end
+end
+
+function utils.getTableSize(t)
+    local count = 0
+    for i, v in pairs(t) do
+        count = count + 1
+    end
+    return count
+end
+
+function utils.valueEleNotInTable(t, value)
+    for i,v in pairs(t) do
+        if v == value then
+            return false
+        end
+    end
+    return true
+end
+
+function utils.moveValue(src, dest, key)
+    dest[key] = src[key]
+    src[key] = nil
+end
+
+
+-- ******************************
+-- ********* lua end ************
+-- ******************************
+
+
+-- ******************************
+-- ********* cocos begin ********
+-- ******************************
+
+function utils.isPointInContentRect(point, target)
+    local locationInNode = target:convertToNodeSpace(point)
+    local s = target:getContentSize()
+    local rect = cc.rect(0, 0, s.width, s.height)
+    return cc.rectContainsPoint(rect, locationInNode)
+end
+
+function utils.isTouchInContentRect(touch, event)
+    local target = tolua.cast(event:getCurrentTarget(), "cc.Node")
+    return utils.isPointInContentRect(touch:getLocation(), target)
+end
+
+-- 用于anchorpoint = {0.5,0.5}
+function utils.isPointInContentRectCenter(point, target)
+    local locationInNode = target:convertToNodeSpace(point)
+    local s = target:getContentSize()
+    local rect = cc.rect(-s.width/2, -s.height/2, s.width, s.height)
+    return cc.rectContainsPoint(rect, locationInNode)
+end
+
+function utils.isTouchInContentRectCenter(touch, event)
+    local target = tolua.cast(event:getCurrentTarget(), "cc.Node")
+    return utils.isPointInContentRectCenter(touch:getLocation(), target)
+end
+
+-- center rect就是指，position在中心的情况，因为contentSize偏移了，所以需要另外算
+-- 上面带center的api也是处理了同样地问题
+function utils.calcCenterRect(node)
+    local x,y = node:getPosition()
+    local size = node:getContentSize()
+    return cc.rect(x - size.width/2 ,y - size.height/2 ,size.width, size.height)
+end
+
+function utils.isFileExist(path)
+    return path and cc.FileUtils:getInstance():isFileExist(path)
+end
+
+function utils.makeBlobObj()
+    if utils.fake_obj == nil then
+        local obj = {}
+        local mt = {
+            __index = function(k)
+                return function() end
+            end,
+            __newindex = function(k,v)
+                return
+            end
+        }
+        setmetatable(obj, mt)
+        utils.fake_obj = obj
+        return obj
+    else
+        return utils.fake_obj
+    end
+end
+
+
+if log_proto == true then
+    function utils.logProtoTab(t, k, data)
+        if data == nil then return end
+        local keyT = DebugProto[k]
+        if keyT == nil then
+            t = data
+            return
+        end
+
+        for i, v in pairs(keyT) do
+            local kt = DebugProto[v[1]]
+            if kt ~= nil then
+                t[v[2]] = {}
+                if v[3] == "repeated" then
+                    for j, w in pairs(data[v[2]]) do
+                        t[v[2]][j] = {}
+                        utils.logProtoTab(t[v[2]][j], v[1], w)
+                    end
+                else
+                    utils.logProtoTab(t[v[2]], v[1], data[v[2]])
+                end
+            else
+                -- print(data[v[2]])
+                t[v[2]] = data[v[2]]
+            end
+        end
+    end
+
+    function utils.logProto(proto, data)
+        local tab = {}
+
+        print("===========================================")
+        print("===========================================")
+        print("===========================================", proto)
+        -- printTree(DebugProto)
+        local keyT = DebugProto[proto]
+        -- printTree(keyT)
+        if keyT == nil then
+            tab = data
+        else
+            for i, v in pairs(keyT) do
+                local kt = DebugProto[v[1]]
+                if kt ~= nil then
+                    tab[v[2]] = {}
+                    if v[3] == "repeated" then
+                        for j, w in pairs(data[v[2]]) do
+                            tab[v[2]][j] = {}
+                            utils.logProtoTab(tab[v[2]][j], v[1], w)
+                        end
+                    else
+                        utils.logProtoTab(tab[v[2]], v[1], data[v[2]])
+                    end
+                else
+                    -- print(data[v[2]])
+                    tab[v[2]] = data[v[2]]
+                end
+            end
+        end
+        printTree(tab)
+    end
+else
+    function utils.logProto(proto, data)
+    end
+end
+-- ******************************
+-- ********* cocos end **********
+-- ******************************
+
+
+return utils

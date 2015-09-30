@@ -1,0 +1,110 @@
+
+
+local csvLoader = {}
+
+
+-- examples see tests/test_csv_parser
+-- field_table indicate tonumber by default
+
+csvLoader.TO_NUM = nil
+csvLoader.TO_STR = 1
+csvLoader.TO_MULTI_NUM = 2
+csvLoader.TO_MULTI_STR = 3
+csvLoader.ALL_STR = ALL_STR
+
+
+local function newindexFunction(t, k, v)
+
+end
+
+function csvLoader:load(filename, id, field_table, sub_id)
+
+    local parser = vx.CsvParser:new(filename)
+    local data = {}
+
+    for i=2,parser:totalLines() - 1 do
+        local entry = {}
+        local fields = parser:fields(i)
+        for j=1,fields do
+
+            --针对特定的配表出现逗号问题，可以把这里打开
+--[[
+            if filename == "hero.csv" then
+                print(i,j)
+            end
+]]
+
+            local value = parser:getValue(i,j)
+            local field_name = parser:getValue(1,j)
+            if field_table == nil then
+                value = tonumber(value)
+            elseif field_table["ALL_STR"] ~= nil then
+                value = tostring(value)
+            else
+                field_indicate = field_table[j]
+                if field_indicate == csvLoader.TO_NUM then
+                    value = tonumber(value)
+                elseif field_indicate == csvLoader.TO_STR then
+                    value = tostring(value)
+                elseif field_indicate == csvLoader.TO_MULTI_NUM then
+                    value = utils.splitToNumber(value, ';')
+                elseif field_indicate == csvLoader.TO_MULTI_STR then
+                    value = utils.split(value, ';')
+                end
+            end
+
+            if value == nil then
+--                logWarnning(string.format("warnning :%s: row == %d field:%s == nil", filename, i, field_name))
+                value = 0
+            end
+            entry[field_name] = value
+--            print(field_name, value)
+        end
+        if id == nil then
+            data[i] = entry
+        else
+            if sub_id then
+                data[entry[id]] = data[entry[id]] or {}
+                data[entry[id]][entry[sub_id]] = entry
+            else
+                data[entry[id]] = entry
+            end
+        end
+       -- printTree(entry)
+    end
+
+    return data
+end
+
+function csvLoader:reinterpret(data, id, sub_id, oid, osub_id)
+    local new_data = {}
+
+    if oid and osub_id then
+        for i,v in pairs(data) do
+            for j,k in pairs(v) do
+                if id and sub_id then
+                    new_data[k[id]] = new_data[k[id]] or {}
+                    new_data[k[id]][k[sub_id]] = k
+                else
+                    new_data[k[id]] = k
+                end
+            end
+        end
+    else
+        for j,k in pairs(data) do
+            if id and sub_id then
+                new_data[k[id]] = new_data[k[id]] or {}
+                new_data[k[id]][k[sub_id]] = k
+            else
+                new_data[k[id]] = k
+            end
+        end
+    end
+    return new_data
+end
+
+function csvLoader:loadReadOnly(filename, id, field_table)
+    return utils.readOnly(csvLoader:load(filename, id, field_table))
+end
+
+return csvLoader

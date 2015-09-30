@@ -1,0 +1,39 @@
+local csv = require("csv")
+
+local parser = {}
+
+function parser.create()
+	local p = {}
+	p.csv = csv.create()
+	setmetatable(p, parser)
+	return p
+end
+
+function parser:release()
+	csv.release(self.csv)
+	p.csv = nil
+	p.buff = nil	
+end
+
+function parser:keep(buff)
+	self.buff = buff
+	csv.keep(self.csv, buff)
+end
+
+function parser:parser(delimit, safe)
+	csv.parser(self.csv, delimit, safe)
+end
+
+function parser:totalline()
+	return csv.totalline(self.csv)
+end
+
+function parser:fields(lineindex)
+	return csv.fields(self.csv, lineindex)
+end
+
+function parser:value(row, col)
+	return csv.value(self.csv, row, col)
+end
+
+return parser

@@ -7,3 +7,15 @@
 	branch = lua-5.1
 [submodule "libs"]
 	branch = lua51
+[submodule "libs/sproto"]
+	path = libs/sproto
+	url = https://github.com/LunaFramework/sproto.git
+[submodule "libs/libuv"]
+	path = libs/libuv
+	url = https://github.com/LunaFramework/libuv.git
+[submodule "libs/luv"]
+	path = libs/luv
+	url = https://github.com/LunaFramework/luv.git
+[submodule "skynet"]
+	path = skynet
+	url = https://github.com/LunaFramework/skynet.git
